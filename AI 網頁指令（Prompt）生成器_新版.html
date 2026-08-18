@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI HTML 網頁提示詞生成器</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 20px; line-height: 1.6; }
+    .container { max-width: 900px; margin: 0 auto; }
+    
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 { font-size: 1.8rem; color: #1e293b; margin-bottom: 6px; }
+    header p { color: var(--muted); font-size: 0.95rem; }
+
+    /* 快捷範本按鈕 */
+    .presets { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+    .preset-btn { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: all 0.2s; }
+    .preset-btn:hover { background: #c7d2fe; transform: translateY(-1px); }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+    .card { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .card h2 { font-size: 1.15rem; margin-bottom: 16px; color: #334155; display: flex; align-items: center; gap: 6px; }
+
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+    input, select, textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; color: var(--text); background: #fdfdfd; transition: border 0.2s; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
+    textarea { resize: vertical; min-height: 60px; }
+
+    /* 視覺風格選單與輸入組合樣式 */
+    .style-combo { display: flex; flex-direction: column; gap: 6px; }
+
+    .output-box { width: 100%; height: 320px; background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; overflow-y: auto; }
+    
+    .btn-group { display: flex; gap: 10px; margin-top: 14px; }
+    .btn-primary { flex: 1; background: var(--primary); color: #fff; border: none; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: background 0.2s; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-copy { background: var(--accent); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    .btn-copy:hover { opacity: 0.9; }
+
+    .toast { display: none; text-align: center; margin-top: 10px; font-size: 0.85rem; color: var(--accent); font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>🛠️ AI 網頁指令（Prompt）生成器</h1>
+    <p>填寫右/下方欄位，一鍵產出標準提示詞，貼給 AI 即可生成獨立 HTML 網頁！</p>
+  </header>
+
+  <!-- 題目快速載入 -->
+  <div class="presets">
+    <button class="preset-btn" onclick="applyPreset(1)">⚡ 範例 1：個人數位名片</button>
+    <button class="preset-btn" onclick="applyPreset(2)">🍔 範例 2：熱愛事物推廣頁</button>
+    <button class="preset-btn" onclick="applyPreset(3)">⏱️ 範例 3：實用互動小工具</button>
+  </div>
+
+  <div class="grid">
+    <!-- 參數輸入區 -->
+    <div class="card">
+      <h2>📝 提示詞元素設定</h2>
+      
+      <div class="form-group">
+        <label>1. 網頁主題名稱</label>
+        <input type="text" id="topic" placeholder="例：我的個人作品展示頁">
+      </div>
+
+      <div class="form-group">
+        <label>2. 核心內容與欄位</label>
+        <textarea id="content" placeholder="例：大頭貼區塊、自介、技能清單、社群按鈕"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>3. 視覺設計風格</label>
+        <div class="style-combo">
+          <select id="style-select" onchange="if(this.value) document.getElementById('style').value = this.value;">
+            <option value="">-- 下拉選擇預設風格（或在下方自行輸入） --</option>
+            <option value="現代極簡風格 (Clean & Modern)">現代極簡 (Clean & Modern)</option>
+            <option value="深色科技/賽博龐克風格 (Dark Cyberpunk)">深色科技 / 賽博龐克 (Dark Cyberpunk)</option>
+            <option value="日系溫暖文青風格 (Japanese Minimalist)">日系溫暖文青 (Japanese Minimalist)</option>
+            <option value="活潑可愛馬卡龍色系 (Vibrant & Cute)">活潑可愛馬卡龍 (Vibrant & Cute)</option>
+            <option value="專業商務風 (Corporate & Clean)">專業商務 (Corporate & Clean)</option>
+          </select>
+          <input type="text" id="style" list="style-options" placeholder="選擇上方預設或在此自行輸入風格...">
+          <datalist id="style-options">
+            <option value="現代極簡風格 (Clean & Modern)"></option>
+            <option value="深色科技/賽博龐克風格 (Dark Cyberpunk)"></option>
+            <option value="日系溫暖文青風格 (Japanese Minimalist)"></option>
+            <option value="活潑可愛馬卡龍色系 (Vibrant & Cute)"></option>
+            <option value="專業商務風 (Corporate & Clean)"></option>
+          </datalist>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>4. 色彩與字體需求</label>
+        <input type="text" id="palette" placeholder="例：主色深藍、強調色亮橘，繁體中文無襯線字體">
+      </div>
+
+      <div class="form-group">
+        <label>5. 特殊互動/功能</label>
+        <input type="text" id="interaction" placeholder="例：點擊切換深色模式、懸停按鈕微動效、計數功能">
+      </div>
+
+      <div class="btn-group">
+        <button class="btn-primary" onclick="generatePrompt()">🔄 生成提示詞</button>
+      </div>
+    </div>
+
+    <!-- 輸出預覽區 -->
+    <div class="card">
+      <h2>🚀 生成結果（複製貼給 AI）</h2>
+      <div class="output-box" id="output">點擊「生成提示詞」或上方快捷範例以查看結果...</div>
+      
+      <div class="btn-group">
+        <button class="btn-copy" onclick="copyPrompt()">📋 一鍵複製提示詞</button>
+      </div>
+      <div class="toast" id="toast">✅ 已成功複製到剪貼簿！可直接貼給 ChatGPT / Claude / Gemini</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const presets = {
+    1: {
+      topic: "個人專屬數位名片",
+      content: "大頭貼區塊、姓名與簡介、我的三大專長標籤、作品集連結按鈕、LINE/IG 聯絡方式",
+      style: "現代極簡風格 (Clean & Modern)",
+      palette: "白底黑字、搭配科技藍強調色、現代無襯線繁體中文字體",
+      interaction: "滑鼠懸停於按鈕時有浮起陰影動效、點擊聯絡按鈕有波紋效果"
+    },
+    2: {
+      topic: "台中夜市排隊美食推薦頁",
+      content: "美食首頁大橫幅(Banner)、精選 3 道必吃小吃圖文卡片、評分星級、營業時間與地址",
+      style: "活潑可愛馬卡龍色系 (Vibrant & Cute)",
+      palette: "溫暖橙黃色系與奶油白背景、圓潤友善字體",
+      interaction: "每張美食卡片點擊可展開查看「推薦必點原因」、具備「隨機推薦今日晚餐」的抽籤小按鈕"
+    },
+    3: {
+      topic: "簡約高效番茄鐘學習計時器",
+      content: "25分鐘工作/5分鐘休息切換、大字體倒數計時顯示、開始/暫停/重置按鈕、今日已完成專注次數統計",
+      style: "深色科技/賽博龐克風格 (Dark Cyberpunk)",
+      palette: "純黑背景、霓虹綠與螢光橘強調色、科技數位感字體",
+      interaction: "倒數計時跳動、計時結束時彈出提醒視窗、累計番茄次數即時儲存在網頁畫面上"
+    }
+  };
+
+  function applyPreset(id) {
+    const p = presets[id];
+    document.getElementById('topic').value = p.topic;
+    document.getElementById('content').value = p.content;
+    document.getElementById('style').value = p.style;
+    const styleSelect = document.getElementById('style-select');
+    if (styleSelect) styleSelect.value = p.style;
+    document.getElementById('palette').value = p.palette;
+    document.getElementById('interaction').value = p.interaction;
+    generatePrompt();
+  }
+
+  function generatePrompt() {
+    const topic = document.getElementById('topic').value || '自訂網頁';
+    const content = document.getElementById('content').value || '自訂內容';
+    const style = document.getElementById('style').value || '現代極簡風格 (Clean & Modern)';
+    const palette = document.getElementById('palette').value || '簡約舒適配色';
+    const interaction = document.getElementById('interaction').value || '基本按鈕點擊反饋';
+
+    const promptText = `你是一位資深的前端設計師與 UI/UX 專家。請幫我製作一個完整、美觀且具互動性的單一網頁 HTML 檔案。
+
+【1. 網頁主題與內容】
+- 主題名稱：${topic}
+- 核心內容/文案：${content}
+
+【2. 設計風格與排版】
+- 視覺風格：${style}
+- 色彩與字體：${palette}，使用繁體中文優化無襯線字體
+
+【3. 特殊功能與互動要求】
+- 核心功能/互動：${interaction}
+- 視覺動效：加入平滑的 Hover 懸停反饋與過渡動畫（CSS Transitions）
+
+【4. 技術規格與邊界限制（重要）】
+1. 請將所有程式碼整合在「單一 HTML 檔案」中（包含 HTML5 標籤、<style> 內嵌 CSS、<script> 內嵌 JavaScript）。
+2. 不依賴任何後端伺服器，下載儲存為 .html 檔案後，雙擊即可在瀏覽器完美運行。
+3. 圖示一律使用 Emoji 或 SVG 代碼呈現，確保離線與跨設備相容。
+4. 請輸出完整代碼，不要省略任何關鍵邏輯。`;
+
+    document.getElementById('output').textContent = promptText;
+  }
+
+  function copyPrompt() {
+    const text = document.getElementById('output').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const toast = document.getElementById('toast');
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    });
+  }
+</script>
+
+</body>
+</html>
